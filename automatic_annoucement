@@ -1,0 +1,134 @@
+// update 12/14/20
+// sending event on that event day.
+
+// Extract sheet by its name
+function getSheetByName(name){
+ var ss = SpreadsheetApp.getActiveSpreadsheet();
+ var sheets = ss.getSheets();
+  for (var n in sheets){
+    if (name == sheets[n].getName()){
+      return sheets[n];
+    }
+  }
+  throw new Error('Sheet not found.');
+}
+
+
+// Read Goldman Lab Events Information from the spreadsheet
+function gatherEventList(){
+  var sheet = getSheetByName("EventList")
+  var rows= sheet.getLastRow()
+  var cols= sheet.getLastColumn()
+  var dataRange = sheet.getRange(2,1,rows-1,cols) 
+  var myEvent = dataRange.getValues();
+  return myEvent 
+}
+  
+// Read Email Information from the spreadsheet
+function gatherEmails(){
+  var sheet = getSheetByName("Emails")
+  var rows= sheet.getLastRow()
+  var cols= sheet.getLastColumn()
+  var dataRange = sheet.getRange(2,1,rows-1,cols) 
+  var myEmail = dataRange.getValues();
+  return myEmail
+  
+}
+ 
+
+
+// Main Function
+// First, gather Events by FUNCTION gatherEventList
+// Second, gather Receipents by FUNCTION gatherEmails
+// If time trigger condition meets (2 days before the event occurs)
+// Then first, send out email by FUNCTION sendEmail
+//      second, add the event in the google calendar
+
+
+
+
+function sendEmails(){
+  
+  var myEmail = gatherEmails();
+  var myEvent = gatherEventList();
+  
+  var day = 24*3600*1000; // the number of milliseconds in a day
+  var toDaytemp = new Date(); //string
+  var toDay = parseInt((new Date().setHours(0,0,0,0)/day)); // today's date at 00:00 get date today
+ 
+  
+  
+  for (var i=0; i< myEvent.length; i++){
+     
+      var sheet = getSheetByName("EventList")
+      var speaker = myEvent[i][0]
+      var when = myEvent[i][1] //date and time
+     
+      var mywhen = new Date(when)
+     // var dataday = parseInt(when.getTime()/day) //convert date from spreadsheet to datevalues
+      var dataday = parseInt(mywhen.getTime()/day) //convert date from spreadsheet to datevalues
+      var newwhen = Utilities.formatDate(mywhen, 'America/Los_Angeles', 'MMMM dd, yyyy, hh:mm a')
+      
+      var where = myEvent[i][2]
+      var myTitle= myEvent[i][3]
+      var startTime = myEvent[i][4]
+      var endTime = myEvent[i][5]
+      var myRecipient = myEvent[i][6]
+      var updateCalendar = myEvent[i][7]
+     // var attachment = UrlFetchApp.fetch(myEvent[i][8]).getBlob()
+     // var updateCal = 'Updated';
+    
+      // Adding the event on the calendar a week before
+    
+      //var rows= sheet.getLastRow()
+     // var cols= sheet.getLastColumn()
+     
+      Logger.log(endTime)
+      
+      if (dataday == toDay +3 && updateCalendar == 'no'){
+            
+            var event = CalendarApp.getDefaultCalendar().createEvent(speaker, new Date(startTime),new Date(endTime),{location: where});
+           //var event = CalendarApp.getDefaultCalendar().createEvent(speaker, new Date(startTime),new Date(endTime));
+            sheet.getRange(i+2,8).setValue('updated')
+
+
+           
+          
+      }
+  
+      // Sending Email 0 days before the event
+      
+    if (dataday == toDay + 0 ){
+    
+        var message = "Speaker: "+ speaker + "\n"+ "Date/Time: "+ newwhen +"\n"  + "Location: " +  where + "\n" + "Title: "+ myTitle
+     
+     
+       // sending email
+      for (j in myEmail){
+       
+        var recipients = myRecipient.split(",") // split string into array i.e. [A, B, C, ---]
+        
+        for(k in recipients) {
+          var col = recipients[k].charCodeAt(0) - "A".charCodeAt(0) // get the ASCHII value
+       
+          if(myEmail[j][col] != '') {
+            try { 
+              GmailApp.sendEmail(myEmail[j][col],"Reminder:  " + speaker,message)
+             // GmailApp.sendEmail(myEmail[j][col],"Reminder:  " + speaker,message, {attachemnts:[attachment]})
+                } catch (e) {
+                  Logger.log("Event " + i)
+                  Logger.log(e)
+                  Logger.log(myEmail[j][col])
+               }
+            
+           
+          }
+        }
+        
+      }
+     
+    }
+ 
+  
+ }  
+}
